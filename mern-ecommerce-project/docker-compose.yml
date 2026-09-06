@@ -12,6 +12,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - ptap-net
 
   backend:
     build:
@@ -26,6 +28,8 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+    networks:
+      - ptap-net
 
   frontend:
     build:
@@ -37,6 +41,12 @@ services:
       - "3000:80"
     depends_on:
       - backend
+    networks:
+      - ptap-net
 
 volumes:
   mongo_data:
+
+networks:
+  ptap-net:
+    driver: bridge
