@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const productsRouter = require('./routes/products');
 const ordersRouter = require('./routes/orders');
 const statsRouter = require('./routes/stats');
+const { orderQueue } = require('./queue');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -16,12 +17,21 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-app.get('/healthz', (req, res) => {
+app.get('/healthz', async (req, res) => {
   const dbReady = mongoose.connection.readyState === 1;
-  res.status(dbReady ? 200 : 503).json({
-    status: dbReady ? 'UP' : 'DEGRADED',
+  let redisReady = false;
+  try {
+    const client = await orderQueue.client;
+    redisReady = (await client.ping()) === 'PONG';
+  } catch {
+    redisReady = false;
+  }
+  const ready = dbReady && redisReady;
+  res.status(ready ? 200 : 503).json({
+    status: ready ? 'UP' : 'DEGRADED',
     service: 'ptap-delivery-backend',
     database: dbReady ? 'CONNECTED' : 'DISCONNECTED',
+    redis: redisReady ? 'CONNECTED' : 'DISCONNECTED',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
   });

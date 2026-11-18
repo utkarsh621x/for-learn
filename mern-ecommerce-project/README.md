@@ -90,6 +90,17 @@ Open: `http://YOUR_SERVER_IP:3000`
 | POST | `/api/orders` | Create order |
 | PATCH | `/api/orders/:orderId/status` | Update status |
 | GET | `/api/stats` | Dashboard stats |
+| GET | `/api/orders/queue` | BullMQ job counts (waiting, active, completed, failed) |
+
+Creating an order saves it in MongoDB as `CONFIRMED`, then adds a BullMQ job named `fulfill`. A separate worker process reads that queue from Redis and moves the order `DISPATCHED` → `IN_TRANSIT` → `DELIVERED`. The orders page refreshes every 3 seconds so you can watch the status change.
+
+```bash
+# third terminal, after Redis is running
+cd mern-ecommerce-project/backend
+npm run worker
+```
+
+Docker Compose starts Redis and the worker for you (`docker compose up --build`). On Kubernetes, apply `k8s/redis.yaml` and `k8s/worker.yaml` with the other manifests. The worker uses the same backend image and the command `node src/worker.js`. Keep it at 1 replica.
 
 ## Architecture (application today)
 

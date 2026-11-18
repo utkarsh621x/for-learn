@@ -1,12 +1,23 @@
 const express = require('express');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
+const { orderQueue } = require('../queue');
 
 const router = express.Router();
 
 function generateOrderId() {
   return `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
 }
+
+// GET /api/orders/queue
+router.get('/queue', async (req, res) => {
+  try {
+    const counts = await orderQueue.getJobCounts('waiting', 'active', 'completed', 'failed');
+    res.json(counts);
+  } catch (err) {
+    res.status(503).json({ message: 'Redis queue unavailable', error: err.message });
+  }
+});
 
 // GET /api/orders
 router.get('/', async (req, res) => {
@@ -51,7 +62,18 @@ router.post('/', async (req, res) => {
       totalAmount: product.price * quantity,
     });
 
-    res.status(201).json(order);
+    const job = await orderQueue.add(
+      'fulfill',
+      { orderId: order.orderId },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: 100,
+        removeOnFail: 100,
+      }
+    );
+
+    res.status(201).json({ ...order.toObject(), jobId: job.id });
   } catch (err) {
     res.status(500).json({ message: 'Failed to create order', error: err.message });
   }

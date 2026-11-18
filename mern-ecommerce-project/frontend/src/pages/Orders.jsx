@@ -20,6 +20,13 @@ export default function Orders() {
 
   useEffect(() => {
     loadData().catch((err) => setError(err.response?.data?.message || 'Failed to load data'));
+    const timer = setInterval(() => {
+      api
+        .get('/orders')
+        .then((res) => setOrders(res.data))
+        .catch(() => {});
+    }, 3000);
+    return () => clearInterval(timer);
   }, []);
 
   const handleSubmit = async (e) => {

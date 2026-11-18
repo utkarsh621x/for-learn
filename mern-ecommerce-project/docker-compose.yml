@@ -25,9 +25,53 @@ services:
       - ./backend/.env
     ports:
       - "5000:5000"
+    environment:
+      MONGO_URI: mongodb://mongo:27017/ptap_delivery
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
     depends_on:
       mongo:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ptap-net
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ptap-worker
+    restart: unless-stopped
+    command: ["node", "src/worker.js"]
+    env_file:
+      - ./backend/.env
+    environment:
+      MONGO_URI: mongodb://mongo:27017/ptap_delivery
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ptap-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: ptap-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - ptap-net
 
@@ -46,6 +90,7 @@ services:
 
 volumes:
   mongo_data:
+  redis_data:
 
 networks:
   ptap-net:
